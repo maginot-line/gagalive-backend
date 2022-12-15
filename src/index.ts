@@ -21,43 +21,45 @@ const getRooms = () => {
   });
   return roomList;
 };
-
 const users = new Map();
 
 io.on('connection', (socket) => {
+  const { token } = socket.handshake.auth;
+  socket.on('disconnect', () => {
+    users.delete(token);
+  });
   socket.on('join_room', () => {
     const roomList = getRooms();
-    let roomId = '';
+    let room = '';
     if (roomList.length === 0) {
       const getTime = new Date().getTime().toString(36);
       const randomString = Math.random().toString(36).substring(2, 11);
-      roomId = getTime + randomString;
-      socket.join(roomId);
-      socket.emit('welcome', 'create', roomId);
+      room = getTime + randomString;
+      socket.join(room);
+      socket.emit('welcome', 'create', room);
     } else {
-      roomId = roomList[0];
-      socket.join(roomId);
-      socket.emit('welcome', 'join', roomId);
+      room = roomList[0];
+      socket.join(room);
+      socket.emit('welcome', 'join', room);
     }
-    console.log(`room ${roomId} joined`);
-    users.set(socket.id, roomId);
+    console.log(`room ${room} joined`);
+    users.set(token, room);
     socket.emit('concurrent_users', users.size);
   });
-  socket.on('leave_room', (roomId, socketId) => {
-    if (roomId) {
-      socket.leave(roomId);
-      console.log(`room ${roomId} left`);
-      if (users.get(socket.id) !== roomId) {
-        console.log('error');
-      } else {
-        users.delete(socket.id);
-        socket.emit('concurrent_users', users.size);
-      }
+  socket.on('leave_room', () => {
+    const room = users.get(token);
+    if (room === undefined) {
+      return;
+    } else {
+      socket.leave(room);
+      console.log(`room ${room} left`);
+      users.delete(token);
+      socket.emit('concurrent_users', users.size);
     }
-    socket.to(roomId).emit('break_room', socketId);
+    socket.to(room).emit('break_room', token);
   });
-  socket.on('send_message', (roomId, socketId, msg) => {
-    socket.to(roomId).emit('receive_message', socketId, msg);
+  socket.on('send_message', (roomId, msg) => {
+    socket.to(roomId).emit('receive_message', token, msg);
   });
 });
 
