@@ -44,7 +44,7 @@ io.on('connection', (socket) => {
     }
     console.log(`room ${room} joined`);
     users.set(token, room);
-    socket.emit('concurrent_users', users.size);
+    io.emit('concurrent_users', users.size);
   });
   socket.on('leave_room', () => {
     const room = users.get(token);
@@ -58,8 +58,9 @@ io.on('connection', (socket) => {
     }
     socket.to(room).emit('break_room', token);
   });
-  socket.on('send_message', (roomId, msg) => {
-    socket.to(roomId).emit('receive_message', token, msg);
+  socket.on('send_message', (msg) => {
+    const room = users.get(token);
+    socket.to(room).emit('receive_message', token, msg);
   });
 });
 
